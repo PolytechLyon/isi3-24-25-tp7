@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Hello Page</title>
+    <script>
+        const headers = { "Content-Type": "application/json" };
+
+        function loadGreeting() {
+            const el = document.getElementById("greeting");
+            return fetch("/api/greeting")
+                .then(r => r.ok ? r.json() : Promise.reject(r))
+                .then(body => el.innerText = body.message)
+                .catch(r => el.innerText = r.status === 401  ? "Not connected" : "Error fetching greeting");
+        }
+
+        function loadLocaleOptions() {
+            function createOption(symbol) {
+                const option = document.createElement('option');
+                option.value = symbol;
+                option.innerText = symbol;
+                return option;
+            }
+            const selects = document.querySelectorAll('select.of-locale');
+            const locales = fetch("/api/locales")
+                .then(r => r.ok ? r.json() : Promise.reject(r))
+                .catch(console.error);
+            for (const select of selects) {
+                locales
+                    .then(list => list.map(createOption))
+                    .then(options => {
+                        for (const option of options) {
+                            select.appendChild(option);
+                        }
+                    });
+            }
+        }
+
+        function onLoad() {
+            loadGreeting();
+            loadLocaleOptions();
+        }
+
+        function reset() {
+            hideSelector(".message");
+            return loadGreeting();
+        }
+
+        function login() {
+            const username = getValue('login-username');
+            const password = getValue('login-password');
+            const body = JSON.stringify({ username, password });
+            fetch("/api/me", { method: "POST", body, headers})
+                .then(r => r.ok ? reset() : Promise.reject(r))
+                .catch(r => showElement(r.status === 401 ? "bad-credentials-error" : "login-error"));
+        }
+
+        function logout() {
+            fetch("/api/me", { method: 'DELETE' })
+                .then(reset);
+        }
+
+        function create() {
+            const username = getValue('create-username');
+            const password = getValue('create-password');
+            const locale = getValue('create-locale');
+            const body = JSON.stringify({ username, password, locale });
+            fetch("/api/users", { method: "POST", body, headers })
+                .then(r => r.ok ? reset() : Promise.reject(r))
+                .then(() => showElement("create-done"))
+                .catch(r => showElement(r.status === 409 ? "duplicate-username-error" : "create-error"));
+        }
+
+        function update() {
+            const username = getValue('update-username');
+            const password = getValue('update-password');
+            const locale = getValue('update-locale');
+            const body = JSON.stringify({ password, locale });
+            fetch(`/api/users/${username}`, { method: "PUT", body, headers })
+                .then(r => r.ok ? reset() : Promise.reject(r))
+                .then(() => showElement("update-done"))
+                .catch(r => showElement(r.status === 404 ? "username-not-found-error" : "update-error"));
+        }
+
+        function getValue(id) {
+            return document.getElementById(id).value;
+        }
+
+        function showElement(id) {
+            document.getElementById(id).style.display = "block";
+        }
+
+        function hideSelector(selector) {
+            document.querySelectorAll(selector).forEach(e => e.style.display = "none");
+        }
+    </script>
+</head>
+<body onload="onLoad()">
+    <h1 id="greeting">&nbsp;</h1>
+    <div>
+        <h2>Login</h2>
+        <form autocomplete="off">
+            <label for="login-username">Username</label>
+            <input id="login-username"/>
+            <label for="login-password">Password</label>
+            <input id="login-password" type="password"/>
+            <input type="button" value="Go" onclick="login()" />
+            <p id="bad-credentials-error" class="message" style="display: none">Bad credentials</p>
+            <p id="login-error" class="message" style="display: none">Login error</p>
+        </form>
+
+        <h2>New user</h2>
+        <form autocomplete="off">
+            <label for="create-username">Username</label>
+            <input id="create-username"/>
+            <label for="create-password">Password</label>
+            <input id="create-password" type="password"/>
+            <label for="create-locale">Locale</label>
+            <select class="of-locale" id="create-locale"></select>
+            <input type="button" value="Go" onclick="create()" />
+            <p id="duplicate-username-error" class="message" style="display: none">Username already exists</p>
+            <p id="create-error" class="message" style="display: none">Error creating user</p>
+            <p id="create-done" class="message" style="display: none">User created</p>
+        </form>
+
+        <h2>Update password</h2>
+        <form autocomplete="off">
+            <label for="update-username">Username</label>
+            <input id="update-username"/>
+            <label for="update-password">Password</label>
+            <input id="update-password" type="password"/>
+            <label for="update-locale">Locale</label>
+            <select class="of-locale" id="update-locale"></select>
+            <input type="button" value="Go" onclick="update()" />
+            <p id="username-not-found-error" class="message" style="display: none">Username not found</p>
+            <p id="update-error" class="message" style="display: none">Error updating user</p>
+            <p id="update-done" class="message" style="display: none">User updated</p>
+        </form>
+
+        <h2>Logout</h2>
+        <form>
+            <input type="button" value="Go" onclick="logout()" />
+        </form>
+    </div>
+
+</body>
+</html>
